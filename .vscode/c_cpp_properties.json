@@ -1,0 +1,30 @@
+{
+    "configurations": [
+        {
+            "name": "Mac",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/opt/devkitpro/libgba/include",
+                "/opt/devkitpro/devkitARM/arm-none-eabi/include"
+            ],
+            "defines": [
+                "__GBA__"
+            ],
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "macos-clang-arm64",
+            "compilerPath": "/usr/bin/gcc",
+            "compilerArgs": [
+                "-g",
+                "-Wall",
+                "-O3",
+                "-mcpu=arm7tdmi",
+                "-mtune=arm7tdmi",
+                "-fomit-frame-pointer",
+                "-ffast-math",
+                "-lgba"
+            ]
+        }
+    ],
+    "version": 4
+}

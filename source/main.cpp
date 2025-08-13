@@ -1,49 +1,34 @@
-extern "C" {
-    #include <gba_console.h>
-    #include <gba_video.h>
-    #include <gba_interrupt.h>
-    #include <gba_systemcalls.h>
-}
 #include <stdio.h>
+#include <iostream>
 #include "nn.hpp"
 
 int main(void) {
-    irqInit();
-    irqEnable(IRQ_VBLANK);
-    consoleDemoInit();
+    Tensor a({2.0f}, shape_t{2}, true);
+    Tensor b({4.0f}, shape_t{2}, false);
 
-    iprintf("Backpropagation example\n");
+    // print b
+    printf("b: ");
+    print_tensor(b);
+    printf("\n");
 
-    uint16_t shape[2] = {1, 1};
+    // We want a -> b
+    
+    for (int i = 0; i < 10'000; ++i) {
+        Tensor c0 = a - b;
+        Tensor c1 = a - b;
+        Tensor c2 = c0 * c1;
 
-    Tensor a, b, c, d, e;
+        c2.backward();
 
-    a.initf(2, shape, 1.f);
-    b.initf(2, shape, 3.f);
-    e.initf(2, shape, 0.01f);
-    e.set_requires_grad(true);
-    for (int i = 0; i < 10; ++i) {
-        a.set_requires_grad(true);
-        b.set_requires_grad(true);
+        a.update(0.1f);
+        c2.zero_grad();
 
-        a.zero_grad();
-        b.zero_grad();
-
-        c = sub(a, b);
-        d = mul(c, c);
-
-        d.backward();
-
-        Tensor grad  = extract_grad(a);
-        grad.set_requires_grad(false);
-        Tensor nabla = mul(a, a);
-
-        print_tensor(nabla);
-        
     }
+
+    // print a
+    printf("a: ");
     print_tensor(a);
+    printf("\n");
 
-    while (1) {
-        VBlankIntrWait();
-    }
+    return 0;
 }

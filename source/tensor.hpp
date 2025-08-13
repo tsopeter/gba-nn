@@ -1,56 +1,72 @@
 #pragma once
 
 #include <stdint.h>
+#include <vector>
 #include <functional>
 
-#define MAX_DIMS        4
-#define MAX_TENSOR_SIZE 1024
-#define Q8_SHIFT        8
+using BASE_VALUE_TYPE   = float;
+using BASE_VALUE_TYPE_2 = float;
+using BASE_VALUE_VEC  = std::vector<BASE_VALUE_TYPE>;
+#define BASE_VALUE_Q 1
+#define BASE_VALUE_FRAC (1 << BASE_VALUE_Q)
 
-// Fixed-point conversion
-int16_t float_to_q8(float x);
-float q8_to_float(int16_t x);
+using shape_t = std::vector<uint16_t>;
+
+BASE_VALUE_TYPE float2quant(float value);
+float           quant2float(BASE_VALUE_TYPE value);
 
 class Tensor {
-public:
-    Tensor();
+    public:
+        Tensor();
+        Tensor(const Tensor&);
+        Tensor(std::vector<float> data, shape_t shape);
+        Tensor(std::vector<float> data, shape_t shape, bool requires_grad);
 
-    void init (uint16_t dims, const uint16_t* shape_in, int16_t fill = 0);
-    void initf(uint16_t dims, const uint16_t* shape_in, float fill = 0.f);
+        Tensor operator+(const Tensor& other) const;
+        Tensor operator-(const Tensor& other) const;
+        Tensor operator*(const Tensor& other) const;
+        Tensor operator/(const Tensor& other) const;
 
-    int16_t& operator[](uint16_t i);
-    int16_t  operator[](uint16_t i) const;
+        void set_requires_grad(bool requires_grad);
+        bool requires_grad() const;
+        uint16_t size() const;
 
-    uint16_t offset(uint16_t i, uint16_t j = 0, uint16_t k = 0, uint16_t l = 0) const;
+        BASE_VALUE_TYPE& operator[](size_t index);
+        const BASE_VALUE_TYPE& operator[](size_t index) const;
 
-    uint16_t size() const;
-    uint16_t dim(uint16_t i) const;
+        uint16_t dim(uint16_t index) const;
+        uint16_t ndim() const;
 
-    uint16_t shape[MAX_DIMS];
-    uint16_t ndim;
-    uint16_t total_size;
-    int16_t data[MAX_TENSOR_SIZE];
+        void backward(bool start=true);
+        void zero_grad();
 
-    // Backpropagation
-    void zero_grad();
-    void set_requires_grad(bool req);
-    void backward(bool first=true);
+        BASE_VALUE_VEC& data();
+        BASE_VALUE_VEC& grad();
 
-    int16_t* grad();  // gradient pointer
+        void update (float lr);
 
-    // Only called by autograd engine
-    void _set_creator(std::function<void(Tensor&)>, Tensor* parent1, Tensor* parent2 = nullptr);
+    private:
 
-    bool requires_grad = false;
-    int16_t grad_buf[MAX_TENSOR_SIZE] = {0};
+        void _set_creator(std::function<void(Tensor&)> fn, Tensor* parent1 = nullptr, Tensor* parent2 = nullptr);
 
-    // Autograd fields
-    std::function<void(Tensor&)> backward_fn;
-    Tensor* parent1 = nullptr;
-    Tensor* parent2 = nullptr;
+        std::vector<BASE_VALUE_TYPE> data_;
+        uint16_t ndim_;
+        shape_t shape_;
+        bool requires_grad_ = false;
+        std::function<void(Tensor&)> backward_fn_;
+        Tensor* parent1_ = nullptr;
+        Tensor* parent2_ = nullptr;
+        std::vector<BASE_VALUE_TYPE> grad_;
+
+        Tensor implt_operator_add_i(const Tensor& other) const;
+        Tensor implt_operator_sub_i(const Tensor& other) const;
+        Tensor implt_operator_mul_i(const Tensor& other) const;
+        Tensor implt_operator_div_i(const Tensor& other) const;
+
+
+
 };
 
-Tensor extract_grad(Tensor& t);
-
-void print_tensor(const Tensor& t);
+void print_tensor(Tensor& t);
 void print_tensor_grad(Tensor& t);
+

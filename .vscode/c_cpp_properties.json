@@ -8,7 +8,7 @@
                 "/opt/devkitpro/devkitARM/arm-none-eabi/include"
             ],
             "defines": [
-                "__GBA__"
+                "SYSTEM"
             ],
             "cStandard": "c17",
             "cppStandard": "c++17",

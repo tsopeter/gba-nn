@@ -66,19 +66,19 @@ Tensor::Tensor(std::vector<float> data, shape_t shape, bool requires_grad) {
     parent2_ = nullptr;
 }
 
-Tensor Tensor::operator+(const Tensor& other) const {
+std::shared_ptr<Tensor> Tensor::operator+(std::shared_ptr<Tensor>& other) {
     return implt_operator_add_i(other);
 }
 
-Tensor Tensor::operator-(const Tensor& other) const {
+std::shared_ptr<Tensor> Tensor::operator-(std::shared_ptr<Tensor>& other) {
     return implt_operator_sub_i(other);
 }
 
-Tensor Tensor::operator*(const Tensor& other) const {
+std::shared_ptr<Tensor> Tensor::operator*(std::shared_ptr<Tensor>& other) {
     return implt_operator_mul_i(other);
 }
 
-Tensor Tensor::operator/(const Tensor& other) const {
+std::shared_ptr<Tensor> Tensor::operator/(std::shared_ptr<Tensor>& other) {
     return implt_operator_div_i(other);
 }
 
@@ -96,10 +96,12 @@ void print_tensor_grad(Tensor& t) {
     printf("\n");
 }
 
-void Tensor::_set_creator(std::function<void(Tensor&)> fn, Tensor* parent1, Tensor* parent2) {
+void Tensor::_set_creator(std::function<void(Tensor&)> fn, 
+    std::shared_ptr<Tensor> parent1, 
+    std::shared_ptr<Tensor> parent2) {
     backward_fn_ = std::move(fn);
-    parent1_ = parent1;
-    parent2_ = parent2;
+    parent1_ = std::move(parent1);
+    parent2_ = std::move(parent2);
 }
 
 void Tensor::set_requires_grad(bool requires_grad) {
@@ -182,19 +184,19 @@ void Tensor::update(float lr) {
 }
 
 /// Math implementation
-Tensor Tensor::implt_operator_add_i(const Tensor& other) const {
-    Tensor out;
+std::shared_ptr<Tensor> Tensor::implt_operator_add_i(std::shared_ptr<Tensor>& other) {
+    auto out = std::make_shared<Tensor>();
 
-    out.ndim_ = ndim_;
-    out.shape_ = shape_;
-    out.data_.resize(size());
+    out->ndim_ = ndim_;
+    out->shape_ = shape_;
+    out->data_.resize(size());
 
     for (uint16_t i = 0; i < size(); ++i) {
-        out[i] = data_[i] + other.data_[i];
+        (*out)[i] = data_[i] + (*other)[i];
     }
 
-    if (requires_grad_ || other.requires_grad_) {
-        out.set_requires_grad(true);
+    if (requires_grad_ || other->requires_grad_) {
+        out->set_requires_grad(true);
         auto back_fn = [](Tensor& self) {
             for (uint16_t i = 0; i < self.size(); ++i) {
                 if (self.parent1_ && self.parent1_->requires_grad_)
@@ -203,24 +205,26 @@ Tensor Tensor::implt_operator_add_i(const Tensor& other) const {
                     self.parent2_->grad()[i] += self.grad()[i];
             }
         };
-        out._set_creator(back_fn, const_cast<Tensor*>(&other), const_cast<Tensor*>(this));
+        out->_set_creator(back_fn,
+            other->shared_from_this(),
+            this->shared_from_this());
     }
     return out;
 }
 
-Tensor Tensor::implt_operator_sub_i(const Tensor& other) const {
-    Tensor out;
+std::shared_ptr<Tensor> Tensor::implt_operator_sub_i(std::shared_ptr<Tensor>& other) {
+    auto out = std::make_shared<Tensor>();
 
-    out.ndim_ = ndim_;
-    out.shape_ = shape_;
-    out.data_.resize(size());
+    out->ndim_ = ndim_;
+    out->shape_ = shape_;
+    out->data_.resize(size());
 
     for (uint16_t i = 0; i < size(); ++i) {
-        out[i] = data_[i] - other.data_[i];
+        (*out)[i] = data_[i] - (*other)[i];
     }
 
-    if (requires_grad_ || other.requires_grad_) {
-        out.set_requires_grad(true);
+    if (requires_grad_ || other->requires_grad_) {
+        out->set_requires_grad(true);
         auto back_fn = [](Tensor& self) {
             for (uint16_t i = 0; i < self.size(); ++i) {
                 if (self.parent1_ && self.parent1_->requires_grad_)
@@ -229,25 +233,27 @@ Tensor Tensor::implt_operator_sub_i(const Tensor& other) const {
                     self.parent2_->grad()[i] += self.grad()[i];
             }
         };
-        out._set_creator(back_fn, const_cast<Tensor*>(&other), const_cast<Tensor*>(this));
+        out->_set_creator(back_fn,
+            other->shared_from_this(),
+            this->shared_from_this());
     }
     return out;
 }
 
-Tensor Tensor::implt_operator_mul_i(const Tensor& other) const {
-    Tensor out;
+std::shared_ptr<Tensor> Tensor::implt_operator_mul_i(std::shared_ptr<Tensor>& other) {
+    auto out = std::make_shared<Tensor>();
 
-    out.ndim_ = ndim_;
-    out.shape_ = shape_;
-    out.data_.resize(size());
+    out->ndim_ = ndim_;
+    out->shape_ = shape_;
+    out->data_.resize(size());
 
     for (uint16_t i = 0; i < size(); ++i) {
         // Q7.8 fixed-point multiplication: (a * b) >> 8
-        out[i] = static_cast<BASE_VALUE_TYPE>((static_cast<BASE_VALUE_TYPE_2>(data_[i]) * other.data_[i]) * static_cast<BASE_VALUE_TYPE_2>(BASE_VALUE_FRAC));
+        (*out)[i] = static_cast<BASE_VALUE_TYPE>((static_cast<BASE_VALUE_TYPE_2>(data_[i]) * (*other)[i]) * static_cast<BASE_VALUE_TYPE_2>(BASE_VALUE_FRAC));
     }
 
-    if (requires_grad_ || other.requires_grad_) {
-        out.set_requires_grad(true);
+    if (requires_grad_ || other->requires_grad_) {
+        out->set_requires_grad(true);
         auto back_fn = [](Tensor& self) {
             for (uint16_t i = 0; i < self.size(); ++i) {
                 if (self.parent1_ && self.parent1_->requires_grad_)
@@ -256,29 +262,31 @@ Tensor Tensor::implt_operator_mul_i(const Tensor& other) const {
                     self.parent2_->grad()[i] += (self.grad()[i] * self.parent1_->operator[](i)) / static_cast<BASE_VALUE_TYPE>(BASE_VALUE_FRAC);
             }
         };
-        out._set_creator(back_fn, const_cast<Tensor*>(&other), const_cast<Tensor*>(this));
+        out->_set_creator(back_fn, 
+            other->shared_from_this(), 
+            this->shared_from_this());
     }
     return out;
 }
 
-Tensor Tensor::implt_operator_div_i(const Tensor& other) const {
-    Tensor out;
+std::shared_ptr<Tensor> Tensor::implt_operator_div_i(std::shared_ptr<Tensor>& other) {
+    auto out = std::make_shared<Tensor>();
 
-    out.ndim_ = ndim_;
-    out.shape_ = shape_;
-    out.data_.resize(size());
+    out->ndim_ = ndim_;
+    out->shape_ = shape_;
+    out->data_.resize(size());
 
     for (uint16_t i = 0; i < size(); ++i) {
         // Q7.8 fixed-point division: (a << 8) / b
-        if (other.data_[i] != 0) {
-            out[i] = static_cast<BASE_VALUE_TYPE>((static_cast<BASE_VALUE_TYPE_2>(data_[i]) * static_cast<BASE_VALUE_TYPE_2>(BASE_VALUE_FRAC)) / other.data_[i]);
+        if ((*other)[i] != 0) {
+            (*out)[i] = static_cast<BASE_VALUE_TYPE>((static_cast<BASE_VALUE_TYPE_2>(data_[i]) * static_cast<BASE_VALUE_TYPE_2>(BASE_VALUE_FRAC)) / (*other)[i]);
         } else {
-            out[i] = 0; // or handle division by zero as needed
+            (*out)[i] = 0; // or handle division by zero as needed
         }
     }
 
-    if (requires_grad_ || other.requires_grad_) {
-        out.set_requires_grad(true);
+    if (requires_grad_ || other->requires_grad_) {
+        out->set_requires_grad(true);
         auto back_fn = [](Tensor& self) {
             for (uint16_t i = 0; i < self.size(); ++i) {
                 if (self.parent1_ && self.parent1_->requires_grad_) {
@@ -302,7 +310,9 @@ Tensor Tensor::implt_operator_div_i(const Tensor& other) const {
                 }
             }
         };
-        out._set_creator(back_fn, const_cast<Tensor*>(this), const_cast<Tensor*>(&other));
+        out->_set_creator(back_fn, 
+            this->shared_from_this(), 
+            other->shared_from_this());
     }
     return out;
 }

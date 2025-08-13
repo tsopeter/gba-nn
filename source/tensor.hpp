@@ -15,17 +15,22 @@ using shape_t = std::vector<uint16_t>;
 BASE_VALUE_TYPE float2quant(float value);
 float           quant2float(BASE_VALUE_TYPE value);
 
-class Tensor {
+class Tensor : public std::enable_shared_from_this<Tensor> {
     public:
         Tensor();
         Tensor(const Tensor&);
         Tensor(std::vector<float> data, shape_t shape);
         Tensor(std::vector<float> data, shape_t shape, bool requires_grad);
 
-        Tensor operator+(const Tensor& other) const;
-        Tensor operator-(const Tensor& other) const;
-        Tensor operator*(const Tensor& other) const;
-        Tensor operator/(const Tensor& other) const;
+        std::shared_ptr<Tensor> operator+(std::shared_ptr<Tensor>& other);
+        std::shared_ptr<Tensor> operator-(std::shared_ptr<Tensor>& other);
+        std::shared_ptr<Tensor> operator*(std::shared_ptr<Tensor>& other);
+        std::shared_ptr<Tensor> operator/(std::shared_ptr<Tensor>& other);
+
+        std::shared_ptr<Tensor> implt_operator_add_i(std::shared_ptr<Tensor>& other);
+        std::shared_ptr<Tensor> implt_operator_sub_i(std::shared_ptr<Tensor>& other);
+        std::shared_ptr<Tensor> implt_operator_mul_i(std::shared_ptr<Tensor>& other);
+        std::shared_ptr<Tensor> implt_operator_div_i(std::shared_ptr<Tensor>& other);
 
         void set_requires_grad(bool requires_grad);
         bool requires_grad() const;
@@ -47,23 +52,18 @@ class Tensor {
 
     private:
 
-        void _set_creator(std::function<void(Tensor&)> fn, Tensor* parent1 = nullptr, Tensor* parent2 = nullptr);
+        void _set_creator(std::function<void(Tensor&)> fn, 
+        std::shared_ptr<Tensor> parent1 = nullptr, 
+        std::shared_ptr<Tensor> parent2 = nullptr);
 
         std::vector<BASE_VALUE_TYPE> data_;
         uint16_t ndim_;
         shape_t shape_;
         bool requires_grad_ = false;
         std::function<void(Tensor&)> backward_fn_;
-        Tensor* parent1_ = nullptr;
-        Tensor* parent2_ = nullptr;
+        std::shared_ptr<Tensor> parent1_ = nullptr;
+        std::shared_ptr<Tensor> parent2_ = nullptr;
         std::vector<BASE_VALUE_TYPE> grad_;
-
-        Tensor implt_operator_add_i(const Tensor& other) const;
-        Tensor implt_operator_sub_i(const Tensor& other) const;
-        Tensor implt_operator_mul_i(const Tensor& other) const;
-        Tensor implt_operator_div_i(const Tensor& other) const;
-
-
 
 };
 

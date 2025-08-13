@@ -16,8 +16,18 @@ namespace nn {
  * 
  * Computes the sum of all elements in the tensor.
  */
-Tensor sum (Tensor&);
-Tensor npow (Tensor&, float exponent);
-Tensor nexp (Tensor&);
+Tensor &sum     (Tensor&);
+Tensor &npow    (Tensor&, float exponent);
+Tensor &nexp    (Tensor&);
+Tensor &relu    (Tensor&);
+Tensor &sigmoid (Tensor&, float alpha=1.0f);
+
+
+namespace loss {
+
+Tensor &mse (Tensor& prediction, Tensor& target);
+
+
+}
 
 }

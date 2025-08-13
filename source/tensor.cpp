@@ -444,9 +444,9 @@ Tensor &Tensor::implt_operator_sub_i(float scalar) {
         auto back_fn = [=](Tensor& self) {
             for (uint16_t i = 0; i < self.size(); ++i) {
                 if (self.parent1_ && self.parent1_->requires_grad_)
-                    self.parent1_->grad()[i] -= self.grad()[i];
+                    self.parent1_->grad()[i] += self.grad()[i];
                 if (self.parent2_ && self.parent2_->requires_grad_)
-                    self.parent2_->grad()[i] += self.grad()[i];
+                    self.parent2_->grad()[i] -= self.grad()[i];
             }
         };
         out->_set_creator(back_fn, const_cast<Tensor*>(this), nullptr);

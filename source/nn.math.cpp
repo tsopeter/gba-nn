@@ -56,3 +56,28 @@ Tensor nn::npow(Tensor& t, float exponent) {
 
     return *out;
 }
+
+Tensor nn::nexp(Tensor& t) {
+    Tensor *out = new Tensor(t.shape(), false, true);
+    Tensor_GC_add(out);
+
+    for (uint16_t i = 0; i < t.size(); ++i) {
+        (*out)[i] = static_cast<BASE_VALUE_TYPE>(exp(quant2float(t[i])));
+    }
+
+    if (t.requires_grad()) {
+        out->set_requires_grad(true);
+        auto back_fn = [=](Tensor& self) {
+            for (uint16_t i = 0; i < self.size(); ++i) {
+                if (self.get_parent1() && self.get_parent1()->requires_grad()) {
+                    BASE_VALUE_TYPE a_val = quant2float(self.get_parent1()->data()[i]);
+                    BASE_VALUE_TYPE dL_da = self.grad()[i] * exp(a_val);
+                    self.get_parent1()->grad()[i] += dL_da;
+                }
+            }
+        };
+        out->set_creator(back_fn, const_cast<Tensor*>(&t), nullptr);
+    }
+
+    return *out;
+}

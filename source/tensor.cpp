@@ -181,6 +181,10 @@ Tensor &Tensor::operator/(float scalar) {
     return implt_operator_div_i(scalar);
 }
 
+Tensor &Tensor::operator^(const Tensor& other) {
+    return implt_operator_dot_i(other);
+}
+
 void print_tensor(Tensor& t) {
     for (const auto& val : t.data()) {
         printf("%f ", quant2float(val));
@@ -590,6 +594,71 @@ Tensor &Tensor::implt_operator_sub_i() {
             }
         };
         out->_set_creator(back_fn, const_cast<Tensor*>(this), nullptr);
+    }
+
+    return *out;
+}
+
+Tensor &Tensor::implt_operator_dot_i(const Tensor& other) {
+    if (ndim_ != 2 || other.ndim_ != 2) {
+        throw std::runtime_error("Matrix multiplication is only supported for 2D tensors.");
+    }
+    if (shape_[1] != other.shape_[0]) {
+        throw std::runtime_error("Incompatible shapes for matrix multiplication.");
+    }
+
+    Tensor *out = new Tensor(shape_t{shape_[0], other.shape_[1]}, false, true);
+    _tensor_gc_internal_0134.add_tensor_to_uncleaned(out);
+
+    for (uint16_t i = 0; i < shape_[0]; ++i) {
+        for (uint16_t j = 0; j < other.shape_[1]; ++j) {
+            BASE_VALUE_TYPE sum = 0;
+            for (uint16_t k = 0; k < shape_[1]; ++k) {
+                sum += quant2float(data_[i * shape_[1] + k]) *
+                       quant2float(other.data_[k * other.shape_[1] + j]);
+            }
+            (*out)[i * other.shape_[1] + j] = float2quant(sum);
+        }
+    }
+
+    if (requires_grad_ || other.requires_grad_) {
+        out->set_requires_grad(true);
+        auto back_fn = [=](Tensor& self) {
+            const uint16_t M = self.shape_[0];
+            const uint16_t N = self.shape_[1];
+            const uint16_t K = self.parent1_->shape_[1];
+
+            // dL/dA = dL/dC × B^T
+            if (self.parent1_ && self.parent1_->requires_grad_) {
+                for (uint16_t m = 0; m < M; ++m) {
+                    for (uint16_t k = 0; k < K; ++k) {
+                        float grad_val = 0;
+                        for (uint16_t n = 0; n < N; ++n) {
+                            float dL_dC = quant2float(self.grad()[m * N + n]);
+                            float B_kn  = quant2float(self.parent2_->data()[k * N + n]);
+                            grad_val += dL_dC * B_kn;
+                        }
+                        self.parent1_->grad()[m * K + k] += float2quant(grad_val);
+                    }
+                }
+            }
+
+            // dL/dB = A^T × dL/dC
+            if (self.parent2_ && self.parent2_->requires_grad_) {
+                for (uint16_t k = 0; k < K; ++k) {
+                    for (uint16_t n = 0; n < N; ++n) {
+                        float grad_val = 0;
+                        for (uint16_t m = 0; m < M; ++m) {
+                            float dL_dC = quant2float(self.grad()[m * N + n]);
+                            float A_mk  = quant2float(self.parent1_->data()[m * K + k]);
+                            grad_val += A_mk * dL_dC;
+                        }
+                        self.parent2_->grad()[k * N + n] += float2quant(grad_val);
+                    }
+                }
+            }
+        };
+        out->_set_creator(back_fn, const_cast<Tensor*>(this), const_cast<Tensor*>(&other));
     }
 
     return *out;

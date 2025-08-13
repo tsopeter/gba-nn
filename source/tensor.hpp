@@ -37,6 +37,8 @@ class Tensor {
         Tensor &operator/(const Tensor& other);
         Tensor &operator/(float scalar);
 
+        Tensor &operator^(const Tensor& other);
+
         void set_requires_grad(bool requires_grad);
         bool requires_grad() const;
         uint16_t size() const;
@@ -89,6 +91,8 @@ class Tensor {
 
         Tensor &implt_operator_div_i(const Tensor& other);
         Tensor &implt_operator_div_i(float scalar);
+
+        Tensor &implt_operator_dot_i(const Tensor& other);
 
         std::vector<Tensor*> children_;
 };

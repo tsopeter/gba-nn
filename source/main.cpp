@@ -3,12 +3,13 @@
 #include "nn.hpp"
 
 int main(void) {
-    Tensor a({0.0f, 0.0f}, shape_t{2}, true);
+    Tensor a({2.0f, 2.0f}, shape_t{1, 2}, true);
+    Tensor b({1.0f, 3.0f}, shape_t{2, 1}, true);
 
     // We want a -> b
     
-    for (int i = 0; i < 10'000; ++i) {
-        Tensor c  = nn::npow((a - 10), 2.0f);
+    for (int i = 0; i < 1024; ++i) {
+        Tensor c  = nn::npow(a ^ b, 2); // Matrix multiplication
 
         std::cout << c << '\n';
 
@@ -16,7 +17,7 @@ int main(void) {
 
         c.backward();
 
-        a.update(0.05f);
+        a.update(0.01f);
         c.zero_grad();
         Tensor_GC();
     }

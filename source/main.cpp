@@ -13,21 +13,21 @@ int main(void) {
 
     // We want a -> b
     
-    for (int i = 0; i < 10'000; ++i) {
-        Tensor c0 = a - b;
-        Tensor c2 = c0 * c0;
+    for (int i = 0; i < 1024; ++i) {
+        Tensor d = (a - b) * (a - b);
 
-        c2.backward();
+        //std::cout << "GC Count: " << Tensor_GC_Count() << std::endl;
+
+        d.backward();
 
         a.update(0.1f);
-        c2.zero_grad();
-
+        d.zero_grad();
+        Tensor_GC();
     }
 
     // print a
     printf("a: ");
-   std::cout << a << '\n';
+    std::cout << a << '\n';
     printf("\n");
-
     return 0;
 }

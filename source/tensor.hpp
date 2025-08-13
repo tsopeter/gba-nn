@@ -21,11 +21,12 @@ class Tensor {
         Tensor(const Tensor&);
         Tensor(std::vector<float> data, shape_t shape);
         Tensor(std::vector<float> data, shape_t shape, bool requires_grad);
+        ~Tensor();
 
-        Tensor operator+(const Tensor& other) const;
-        Tensor operator-(const Tensor& other) const;
-        Tensor operator*(const Tensor& other) const;
-        Tensor operator/(const Tensor& other) const;
+        Tensor &operator+(const Tensor& other);
+        Tensor &operator-(const Tensor& other);
+        Tensor &operator*(const Tensor& other);
+        Tensor &operator/(const Tensor& other);
 
         void set_requires_grad(bool requires_grad);
         bool requires_grad() const;
@@ -59,13 +60,33 @@ class Tensor {
         Tensor* parent1_ = nullptr;
         Tensor* parent2_ = nullptr;
         std::vector<BASE_VALUE_TYPE> grad_;
+        bool heap_allocated_ = false;
 
-        Tensor implt_operator_add_i(const Tensor& other) const;
-        Tensor implt_operator_sub_i(const Tensor& other) const;
-        Tensor implt_operator_mul_i(const Tensor& other) const;
-        Tensor implt_operator_div_i(const Tensor& other) const;
+        Tensor &implt_operator_add_i(const Tensor& other);
+        Tensor &implt_operator_sub_i(const Tensor& other);
+        Tensor &implt_operator_mul_i(const Tensor& other);
+        Tensor &implt_operator_div_i(const Tensor& other);
+
+        std::vector<Tensor*> children_;
 };
-
 
 void print_tensor(Tensor& t);
 void print_tensor_grad(Tensor& t);
+
+class TensorResourceTracker {
+public:
+    TensorResourceTracker();
+    ~TensorResourceTracker();
+    void add_tensor_to_uncleaned(Tensor* tensor);
+    void cleanup_tensors();
+    uint64_t count_uncleaned() const;
+private:
+
+    bool is_already_cleaned(Tensor* tensor) const;
+
+    std::vector<Tensor*> uncleaned_tensors_;
+    std::vector<Tensor*> cleaned_tensors_;
+};
+
+void     Tensor_GC();
+uint64_t Tensor_GC_Count();

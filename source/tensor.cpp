@@ -1,5 +1,50 @@
 #include "tensor.hpp"
 #include <iostream>
+#include <cassert>
+
+static TensorResourceTracker _tensor_gc_internal_0134;
+
+void Tensor_GC() {
+    _tensor_gc_internal_0134.cleanup_tensors();
+}
+
+uint64_t Tensor_GC_Count() {
+    return _tensor_gc_internal_0134.count_uncleaned();
+}   
+
+TensorResourceTracker::TensorResourceTracker() {}
+TensorResourceTracker::~TensorResourceTracker() {
+    cleanup_tensors();
+}
+
+void TensorResourceTracker::add_tensor_to_uncleaned(Tensor* tensor) {
+    uncleaned_tensors_.push_back(tensor);
+}
+
+void TensorResourceTracker::cleanup_tensors() {
+    //std::cout<<"Cleaning up tensors: " << uncleaned_tensors_.size() << std::endl;
+    for (auto* tensor : uncleaned_tensors_) {
+        if (!is_already_cleaned(tensor)) {
+            cleaned_tensors_.push_back(tensor);
+            delete tensor; // Clean up the tensor
+        }
+    }
+    uncleaned_tensors_.clear();
+    cleaned_tensors_.clear();
+}
+
+uint64_t TensorResourceTracker::count_uncleaned() const {
+    return uncleaned_tensors_.size();
+}
+
+bool TensorResourceTracker::is_already_cleaned(Tensor* tensor) const {
+    for (const auto* cleaned_tensor : cleaned_tensors_) {        
+        if (cleaned_tensor == tensor) {
+            return true; // Tensor has already been cleaned
+        }
+    }
+    return false; // Tensor has not been cleaned
+}
 
 BASE_VALUE_TYPE float2quant(float value) {
     // Convert float to Q7.8 fixed-point representation
@@ -20,6 +65,8 @@ Tensor::Tensor() {
     grad_.clear();
     parent1_ = nullptr;
     parent2_ = nullptr;
+
+    children_.clear();
 }
 
 Tensor::Tensor(const Tensor& other) {
@@ -32,6 +79,8 @@ Tensor::Tensor(const Tensor& other) {
     backward_fn_ = other.backward_fn_;
     parent1_ = other.parent1_;
     parent2_ = other.parent2_;
+
+    children_ = other.children_;
 }
 
 Tensor::Tensor(std::vector<float> data, shape_t shape) {
@@ -46,6 +95,8 @@ Tensor::Tensor(std::vector<float> data, shape_t shape) {
     grad_.resize(size(), 0);
     parent1_ = nullptr;
     parent2_ = nullptr;
+
+    children_.clear();
 }
 
 Tensor::Tensor(std::vector<float> data, shape_t shape, bool requires_grad) {
@@ -64,21 +115,27 @@ Tensor::Tensor(std::vector<float> data, shape_t shape, bool requires_grad) {
     }
     parent1_ = nullptr;
     parent2_ = nullptr;
+
+    children_.clear();
 }
 
-Tensor Tensor::operator+(const Tensor& other) const {
+Tensor::~Tensor() {
+
+}
+
+Tensor &Tensor::operator+(const Tensor& other) {
     return implt_operator_add_i(other);
 }
 
-Tensor Tensor::operator-(const Tensor& other) const {
+Tensor &Tensor::operator-(const Tensor& other) {
     return implt_operator_sub_i(other);
 }
 
-Tensor Tensor::operator*(const Tensor& other) const {
+Tensor &Tensor::operator*(const Tensor& other) {
     return implt_operator_mul_i(other);
 }
 
-Tensor Tensor::operator/(const Tensor& other) const {
+Tensor &Tensor::operator/(const Tensor& other) {
     return implt_operator_div_i(other);
 }
 
@@ -148,6 +205,7 @@ void Tensor::backward(bool start) {
 }
 
 void Tensor::zero_grad() {
+    //std::cout << "zerograd \n";
     if (requires_grad_) {
         std::fill(grad_.begin(), grad_.end(), 0);
     }
@@ -182,19 +240,21 @@ void Tensor::update(float lr) {
 }
 
 /// Math implementation
-Tensor Tensor::implt_operator_add_i(const Tensor& other) const {
-    Tensor out;
+Tensor &Tensor::implt_operator_add_i(const Tensor& other) {
+    Tensor *out = new Tensor();
+    _tensor_gc_internal_0134.add_tensor_to_uncleaned(out);
 
-    out.ndim_ = ndim_;
-    out.shape_ = shape_;
-    out.data_.resize(size());
+    out->ndim_ = ndim_;
+    out->shape_ = shape_;
+    out->data_.resize(size());
+    out->heap_allocated_ = true;
 
     for (uint16_t i = 0; i < size(); ++i) {
-        out[i] = data_[i] + other.data_[i];
+        (*out)[i] = data_[i] + other.data_[i];
     }
 
     if (requires_grad_ || other.requires_grad_) {
-        out.set_requires_grad(true);
+        out->set_requires_grad(true);
         auto back_fn = [](Tensor& self) {
             for (uint16_t i = 0; i < self.size(); ++i) {
                 if (self.parent1_ && self.parent1_->requires_grad_)
@@ -203,25 +263,29 @@ Tensor Tensor::implt_operator_add_i(const Tensor& other) const {
                     self.parent2_->grad()[i] += self.grad()[i];
             }
         };
-        out._set_creator(back_fn, const_cast<Tensor*>(&other), const_cast<Tensor*>(this));
+        out->_set_creator(back_fn, const_cast<Tensor*>(&other), const_cast<Tensor*>(this));
     }
-    return out;
+
+    return *out;
 }
 
-Tensor Tensor::implt_operator_sub_i(const Tensor& other) const {
-    Tensor out;
+Tensor &Tensor::implt_operator_sub_i(const Tensor& other) {
+    Tensor *out = new Tensor();
+    _tensor_gc_internal_0134.add_tensor_to_uncleaned(out);
 
-    out.ndim_ = ndim_;
-    out.shape_ = shape_;
-    out.data_.resize(size());
+    out->ndim_ = ndim_;
+    out->shape_ = shape_;
+    out->data_.resize(size());
+    out->heap_allocated_ = true;
 
     for (uint16_t i = 0; i < size(); ++i) {
-        out[i] = data_[i] - other.data_[i];
+        (*out)[i] = data_[i] - other.data_[i];
     }
 
     if (requires_grad_ || other.requires_grad_) {
-        out.set_requires_grad(true);
+        out->set_requires_grad(true);
         auto back_fn = [](Tensor& self) {
+            //std::cout << "backward sub\n";
             for (uint16_t i = 0; i < self.size(); ++i) {
                 if (self.parent1_ && self.parent1_->requires_grad_)
                     self.parent1_->grad()[i] -= self.grad()[i];
@@ -229,26 +293,30 @@ Tensor Tensor::implt_operator_sub_i(const Tensor& other) const {
                     self.parent2_->grad()[i] += self.grad()[i];
             }
         };
-        out._set_creator(back_fn, const_cast<Tensor*>(&other), const_cast<Tensor*>(this));
+        out->_set_creator(back_fn, const_cast<Tensor*>(&other), const_cast<Tensor*>(this));
     }
-    return out;
+
+    return *out;
 }
 
-Tensor Tensor::implt_operator_mul_i(const Tensor& other) const {
-    Tensor out;
+Tensor &Tensor::implt_operator_mul_i(const Tensor& other) {
+    Tensor *out = new Tensor();
+    _tensor_gc_internal_0134.add_tensor_to_uncleaned(out);
 
-    out.ndim_ = ndim_;
-    out.shape_ = shape_;
-    out.data_.resize(size());
+    out->ndim_ = ndim_;
+    out->shape_ = shape_;
+    out->data_.resize(size());
+    out->heap_allocated_ = true;
 
     for (uint16_t i = 0; i < size(); ++i) {
         // Q7.8 fixed-point multiplication: (a * b) >> 8
-        out[i] = static_cast<BASE_VALUE_TYPE>((static_cast<BASE_VALUE_TYPE_2>(data_[i]) * other.data_[i]) * static_cast<BASE_VALUE_TYPE_2>(BASE_VALUE_FRAC));
+        (*out)[i] = static_cast<BASE_VALUE_TYPE>((static_cast<BASE_VALUE_TYPE_2>(data_[i]) * other.data_[i]) * static_cast<BASE_VALUE_TYPE_2>(BASE_VALUE_FRAC));
     }
 
     if (requires_grad_ || other.requires_grad_) {
-        out.set_requires_grad(true);
+        out->set_requires_grad(true);
         auto back_fn = [](Tensor& self) {
+            //std::cout << "backward mul" << std::endl;
             for (uint16_t i = 0; i < self.size(); ++i) {
                 if (self.parent1_ && self.parent1_->requires_grad_)
                     self.parent1_->grad()[i] += (self.grad()[i] * self.parent2_->operator[](i)) / static_cast<BASE_VALUE_TYPE>(BASE_VALUE_FRAC);
@@ -256,29 +324,32 @@ Tensor Tensor::implt_operator_mul_i(const Tensor& other) const {
                     self.parent2_->grad()[i] += (self.grad()[i] * self.parent1_->operator[](i)) / static_cast<BASE_VALUE_TYPE>(BASE_VALUE_FRAC);
             }
         };
-        out._set_creator(back_fn, const_cast<Tensor*>(&other), const_cast<Tensor*>(this));
+        out->_set_creator(back_fn, const_cast<Tensor*>(&other), const_cast<Tensor*>(this));
     }
-    return out;
+
+    return *out;
 }
 
-Tensor Tensor::implt_operator_div_i(const Tensor& other) const {
-    Tensor out;
+Tensor &Tensor::implt_operator_div_i(const Tensor& other) {
+    Tensor *out = new Tensor();
+    _tensor_gc_internal_0134.add_tensor_to_uncleaned(out);
 
-    out.ndim_ = ndim_;
-    out.shape_ = shape_;
-    out.data_.resize(size());
+    out->ndim_ = ndim_;
+    out->shape_ = shape_;
+    out->data_.resize(size());
+    out->heap_allocated_ = true;
 
     for (uint16_t i = 0; i < size(); ++i) {
         // Q7.8 fixed-point division: (a << 8) / b
         if (other.data_[i] != 0) {
-            out[i] = static_cast<BASE_VALUE_TYPE>((static_cast<BASE_VALUE_TYPE_2>(data_[i]) * static_cast<BASE_VALUE_TYPE_2>(BASE_VALUE_FRAC)) / other.data_[i]);
+            (*out)[i] = static_cast<BASE_VALUE_TYPE>((static_cast<BASE_VALUE_TYPE_2>(data_[i]) * static_cast<BASE_VALUE_TYPE_2>(BASE_VALUE_FRAC)) / other.data_[i]);
         } else {
-            out[i] = 0; // or handle division by zero as needed
+            (*out)[i] = 0; // or handle division by zero as needed
         }
     }
 
     if (requires_grad_ || other.requires_grad_) {
-        out.set_requires_grad(true);
+        out->set_requires_grad(true);
         auto back_fn = [](Tensor& self) {
             for (uint16_t i = 0; i < self.size(); ++i) {
                 if (self.parent1_ && self.parent1_->requires_grad_) {
@@ -302,9 +373,10 @@ Tensor Tensor::implt_operator_div_i(const Tensor& other) const {
                 }
             }
         };
-        out._set_creator(back_fn, const_cast<Tensor*>(this), const_cast<Tensor*>(&other));
+        out->_set_creator(back_fn, const_cast<Tensor*>(this), const_cast<Tensor*>(&other));
     }
-    return out;
+
+    return *out;
 }
 
 std::ostream& operator<<(std::ostream& os, const Tensor& t) {

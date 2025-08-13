@@ -15,8 +15,7 @@ int main(void) {
     
     for (int i = 0; i < 10'000; ++i) {
         Tensor c0 = a - b;
-        Tensor c1 = a - b;
-        Tensor c2 = c0 * c1;
+        Tensor c2 = c0 * c0;
 
         c2.backward();
 

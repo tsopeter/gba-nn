@@ -7,15 +7,17 @@ int main(void) {
 
     // We want a -> b
     
-    for (int i = 0; i < 1024; ++i) {
-        Tensor d = (a + 3) * (a + 3);
+    for (int i = 0; i < 10'000; ++i) {
+        Tensor c  = nn::npow((a - 10), 2.0f);
+
+        std::cout << c << '\n';
 
         //std::cout << "GC Count: " << Tensor_GC_Count() << std::endl;
 
-        d.backward();
+        c.backward();
 
-        a.update(0.1f);
-        d.zero_grad();
+        a.update(0.05f);
+        c.zero_grad();
         Tensor_GC();
     }
 

@@ -12,6 +12,10 @@ uint64_t Tensor_GC_Count() {
     return _tensor_gc_internal_0134.count_uncleaned();
 }   
 
+void Tensor_GC_add (Tensor* tensor) {
+    _tensor_gc_internal_0134.add_tensor_to_uncleaned(tensor);
+}
+
 TensorResourceTracker::TensorResourceTracker() {}
 TensorResourceTracker::~TensorResourceTracker() {
     cleanup_tensors();
@@ -119,6 +123,24 @@ Tensor::Tensor(std::vector<float> data, shape_t shape, bool requires_grad) {
     children_.clear();
 }
 
+Tensor::Tensor(shape_t shape, bool requires_grad, bool heap_allocated) {
+    // Constructor with shape, requires_grad flag, and heap allocation flag
+    ndim_ = shape.size();
+    shape_ = shape;
+    data_.resize(size(), 0); // Initialize with zeros
+    requires_grad_ = requires_grad;
+    if (requires_grad_) {
+        grad_.resize(size(), 0);
+    } else {
+        grad_.clear();
+    }
+    parent1_ = nullptr;
+    parent2_ = nullptr;
+    heap_allocated_ = heap_allocated;
+
+    children_.clear();
+}
+
 Tensor::~Tensor() {
 
 }
@@ -137,6 +159,10 @@ Tensor &Tensor::operator-(const Tensor& other) {
 
 Tensor &Tensor::operator-(float scalar) {
     return implt_operator_sub_i(scalar);
+}
+
+Tensor &Tensor::operator-() {
+    return implt_operator_sub_i();
 }
 
 Tensor &Tensor::operator*(const Tensor& other) {
@@ -173,6 +199,18 @@ void Tensor::_set_creator(std::function<void(Tensor&)> fn, Tensor* parent1, Tens
     backward_fn_ = std::move(fn);
     parent1_ = parent1;
     parent2_ = parent2;
+}
+
+Tensor* Tensor::get_parent1() {
+    return parent1_;
+}
+
+Tensor* Tensor::get_parent2() {
+    return parent2_;
+}
+
+void Tensor::set_creator(std::function<void(Tensor&)> fn, Tensor* parent1, Tensor* parent2) {
+    _set_creator(std::move(fn), parent1, parent2);
 }
 
 void Tensor::set_requires_grad(bool requires_grad) {
@@ -528,6 +566,38 @@ Tensor &Tensor::implt_operator_div_i(float scalar) {
     return *out;
 }
 
+Tensor &Tensor::implt_operator_sub_i() {
+    Tensor *out = new Tensor();
+    _tensor_gc_internal_0134.add_tensor_to_uncleaned(out);
+
+    out->ndim_ = ndim_;
+    out->shape_ = shape_;
+    out->data_.resize(size());
+    out->heap_allocated_ = true;
+
+    for (uint16_t i = 0; i < size(); ++i) {
+        (*out)[i] = -data_[i];
+    }
+
+    if (requires_grad_) {
+        out->set_requires_grad(true);
+        auto back_fn = [](Tensor& self) {
+            for (uint16_t i = 0; i < self.size(); ++i) {
+                if (self.parent1_ && self.parent1_->requires_grad_)
+                    self.parent1_->grad()[i] -= self.grad()[i];
+                if (self.parent2_ && self.parent2_->requires_grad_)
+                    self.parent2_->grad()[i] -= self.grad()[i];
+            }
+        };
+        out->_set_creator(back_fn, const_cast<Tensor*>(this), nullptr);
+    }
+
+    return *out;
+}
+
+shape_t Tensor::shape() const {
+    return shape_;
+}
 
 
 std::ostream& operator<<(std::ostream& os, const Tensor& t) {

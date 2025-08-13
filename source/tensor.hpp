@@ -8,7 +8,7 @@ using BASE_VALUE_TYPE   = float;
 using BASE_VALUE_TYPE_2 = float;
 using BASE_VALUE_VEC  = std::vector<BASE_VALUE_TYPE>;
 #define BASE_VALUE_Q 1
-#define BASE_VALUE_FRAC (1 << BASE_VALUE_Q)
+#define BASE_VALUE_FRAC (1 << (BASE_VALUE_Q - 1))
 
 using shape_t = std::vector<uint16_t>;
 
@@ -21,6 +21,7 @@ class Tensor {
         Tensor(const Tensor&);
         Tensor(std::vector<float> data, shape_t shape);
         Tensor(std::vector<float> data, shape_t shape, bool requires_grad);
+        Tensor(shape_t shape, bool requires_grad, bool heap_allocated=false);
         ~Tensor();
 
         Tensor &operator+(const Tensor& other);
@@ -28,6 +29,7 @@ class Tensor {
 
         Tensor &operator-(const Tensor& other);
         Tensor &operator-(float scalar);
+        Tensor &operator-();
 
         Tensor &operator*(const Tensor& other);
         Tensor &operator*(float scalar);
@@ -45,6 +47,8 @@ class Tensor {
         uint16_t dim(uint16_t index) const;
         uint16_t ndim() const;
 
+        shape_t shape () const;
+
         void backward(bool start=true);
         void zero_grad();
 
@@ -54,6 +58,10 @@ class Tensor {
         void update (float lr);
 
         friend std::ostream& operator<<(std::ostream& os, const Tensor& t);
+
+        Tensor* get_parent1();
+        Tensor* get_parent2();
+        void    set_creator(std::function<void(Tensor&)> fn, Tensor* parent1 = nullptr, Tensor* parent2 = nullptr);
 
     private:
 
@@ -74,6 +82,7 @@ class Tensor {
 
         Tensor &implt_operator_sub_i(const Tensor& other);
         Tensor &implt_operator_sub_i(float scalar);
+        Tensor &implt_operator_sub_i();
 
         Tensor &implt_operator_mul_i(const Tensor& other);
         Tensor &implt_operator_mul_i(float scalar);
@@ -104,3 +113,4 @@ private:
 
 void     Tensor_GC();
 uint64_t Tensor_GC_Count();
+void     Tensor_GC_add(Tensor* tensor);

@@ -306,3 +306,22 @@ Tensor Tensor::implt_operator_div_i(const Tensor& other) const {
     }
     return out;
 }
+
+std::ostream& operator<<(std::ostream& os, const Tensor& t) {
+    os << "Tensor(shape: [";
+    for (size_t i = 0; i < t.shape_.size(); ++i) {
+        os << t.shape_[i];
+        if (i < t.shape_.size() - 1) {
+            os << ", ";
+        }
+    }
+    os << "], data: [";
+    for (size_t i = 0; i < t.data_.size(); ++i) {
+        os << quant2float(t.data_[i]);
+        if (i < t.data_.size() - 1) {
+            os << ", ";
+        }
+    }
+    os << "])";
+    return os;
+}

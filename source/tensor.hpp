@@ -45,6 +45,8 @@ class Tensor {
 
         void update (float lr);
 
+        friend std::ostream& operator<<(std::ostream& os, const Tensor& t);
+
     private:
 
         void _set_creator(std::function<void(Tensor&)> fn, Tensor* parent1 = nullptr, Tensor* parent2 = nullptr);
@@ -62,11 +64,8 @@ class Tensor {
         Tensor implt_operator_sub_i(const Tensor& other) const;
         Tensor implt_operator_mul_i(const Tensor& other) const;
         Tensor implt_operator_div_i(const Tensor& other) const;
-
-
-
 };
+
 
 void print_tensor(Tensor& t);
 void print_tensor_grad(Tensor& t);
-

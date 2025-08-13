@@ -3,8 +3,8 @@
 #include "nn.hpp"
 
 int main(void) {
-    Tensor a({2.0f}, shape_t{2}, true);
-    Tensor b({4.0f}, shape_t{2}, false);
+    Tensor a({0.0f, 0.0f}, shape_t{2}, true);
+    Tensor b({4.0f, 5.0f}, shape_t{2}, false);
 
     // print b
     printf("b: ");
@@ -26,7 +26,7 @@ int main(void) {
 
     // print a
     printf("a: ");
-    print_tensor(a);
+   std::cout << a << '\n';
     printf("\n");
 
     return 0;

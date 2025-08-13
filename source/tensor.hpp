@@ -24,9 +24,16 @@ class Tensor {
         ~Tensor();
 
         Tensor &operator+(const Tensor& other);
+        Tensor &operator+(float scalar);
+
         Tensor &operator-(const Tensor& other);
+        Tensor &operator-(float scalar);
+
         Tensor &operator*(const Tensor& other);
+        Tensor &operator*(float scalar);
+
         Tensor &operator/(const Tensor& other);
+        Tensor &operator/(float scalar);
 
         void set_requires_grad(bool requires_grad);
         bool requires_grad() const;
@@ -63,9 +70,16 @@ class Tensor {
         bool heap_allocated_ = false;
 
         Tensor &implt_operator_add_i(const Tensor& other);
+        Tensor &implt_operator_add_i(float scalar);
+
         Tensor &implt_operator_sub_i(const Tensor& other);
+        Tensor &implt_operator_sub_i(float scalar);
+
         Tensor &implt_operator_mul_i(const Tensor& other);
+        Tensor &implt_operator_mul_i(float scalar);
+
         Tensor &implt_operator_div_i(const Tensor& other);
+        Tensor &implt_operator_div_i(float scalar);
 
         std::vector<Tensor*> children_;
 };

@@ -4,7 +4,7 @@
 
 int main(void) {
     Tensor a({0.0f, 0.0f}, shape_t{2}, true);
-    Tensor b({4.0f, 5.0f}, shape_t{2}, false);
+    Tensor b({4.0f, 5.0f}, shape_t{2}, true);
 
     // print b
     printf("b: ");
@@ -20,14 +20,14 @@ int main(void) {
 
         d.backward();
 
-        a.update(0.1f);
+        b.update(0.1f);
         d.zero_grad();
         Tensor_GC();
     }
 
-    // print a
-    printf("a: ");
-    std::cout << a << '\n';
+    // print b
+    printf("b: ");
+    std::cout << b << '\n';
     printf("\n");
     return 0;
 }

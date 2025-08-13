@@ -127,16 +127,32 @@ Tensor &Tensor::operator+(const Tensor& other) {
     return implt_operator_add_i(other);
 }
 
+Tensor &Tensor::operator+(float scalar) {
+    return implt_operator_add_i(scalar);
+}
+
 Tensor &Tensor::operator-(const Tensor& other) {
     return implt_operator_sub_i(other);
+}
+
+Tensor &Tensor::operator-(float scalar) {
+    return implt_operator_sub_i(scalar);
 }
 
 Tensor &Tensor::operator*(const Tensor& other) {
     return implt_operator_mul_i(other);
 }
 
+Tensor &Tensor::operator*(float scalar) {
+    return implt_operator_mul_i(scalar);
+}
+
 Tensor &Tensor::operator/(const Tensor& other) {
     return implt_operator_div_i(other);
+}
+
+Tensor &Tensor::operator/(float scalar) {
+    return implt_operator_div_i(scalar);
 }
 
 void print_tensor(Tensor& t) {
@@ -378,6 +394,141 @@ Tensor &Tensor::implt_operator_div_i(const Tensor& other) {
 
     return *out;
 }
+
+Tensor &Tensor::implt_operator_add_i(float scalar) {
+    Tensor *out = new Tensor();
+    _tensor_gc_internal_0134.add_tensor_to_uncleaned(out);
+
+    out->ndim_ = ndim_;
+    out->shape_ = shape_;
+    out->data_.resize(size());
+    out->heap_allocated_ = true;
+
+    BASE_VALUE_TYPE scalar_quant = float2quant(scalar);
+    for (uint16_t i = 0; i < size(); ++i) {
+        (*out)[i] = data_[i] + scalar_quant;
+    }
+
+    if (requires_grad_) {
+        out->set_requires_grad(true);
+        auto back_fn = [=](Tensor& self) {
+            for (uint16_t i = 0; i < self.size(); ++i) {
+                if (self.parent1_ && self.parent1_->requires_grad_)
+                    self.parent1_->grad()[i] += self.grad()[i];
+                if (self.parent2_ && self.parent2_->requires_grad_)
+                    self.parent2_->grad()[i] += self.grad()[i];
+            }
+        };
+        out->_set_creator(back_fn, const_cast<Tensor*>(this), nullptr);
+    }
+
+    return *out;
+}
+
+Tensor &Tensor::implt_operator_sub_i(float scalar) {
+    Tensor *out = new Tensor();
+    _tensor_gc_internal_0134.add_tensor_to_uncleaned(out);
+
+    out->ndim_ = ndim_;
+    out->shape_ = shape_;
+    out->data_.resize(size());
+    out->heap_allocated_ = true;
+
+    BASE_VALUE_TYPE scalar_quant = float2quant(scalar);
+    for (uint16_t i = 0; i < size(); ++i) {
+        (*out)[i] = data_[i] - scalar_quant;
+    }
+
+    if (requires_grad_) {
+        out->set_requires_grad(true);
+        auto back_fn = [=](Tensor& self) {
+            for (uint16_t i = 0; i < self.size(); ++i) {
+                if (self.parent1_ && self.parent1_->requires_grad_)
+                    self.parent1_->grad()[i] -= self.grad()[i];
+                if (self.parent2_ && self.parent2_->requires_grad_)
+                    self.parent2_->grad()[i] += self.grad()[i];
+            }
+        };
+        out->_set_creator(back_fn, const_cast<Tensor*>(this), nullptr);
+    }
+
+    return *out;
+}
+
+Tensor &Tensor::implt_operator_mul_i(float scalar) {
+    Tensor *out = new Tensor();
+    _tensor_gc_internal_0134.add_tensor_to_uncleaned(out);
+
+    out->ndim_ = ndim_;
+    out->shape_ = shape_;
+    out->data_.resize(size());
+    out->heap_allocated_ = true;
+
+    BASE_VALUE_TYPE scalar_quant = float2quant(scalar);
+    for (uint16_t i = 0; i < size(); ++i) {
+        // Q7.8 fixed-point multiplication: (a * b) >> 8
+        (*out)[i] = static_cast<BASE_VALUE_TYPE>((static_cast<BASE_VALUE_TYPE_2>(data_[i]) * scalar_quant) * static_cast<BASE_VALUE_TYPE_2>(BASE_VALUE_FRAC));
+    }
+
+    if (requires_grad_) {
+        out->set_requires_grad(true);
+        auto back_fn = [=](Tensor& self) {
+            for (uint16_t i = 0; i < self.size(); ++i) {
+                if (self.parent1_ && self.parent1_->requires_grad_)
+                    self.parent1_->grad()[i] += (self.grad()[i] * scalar) / static_cast<BASE_VALUE_TYPE>(BASE_VALUE_FRAC);
+                if (self.parent2_ && self.parent2_->requires_grad_)
+                    self.parent2_->grad()[i] += (self.grad()[i] * self.data_[i]) / static_cast<BASE_VALUE_TYPE>(BASE_VALUE_FRAC);
+            }
+        };
+        out->_set_creator(back_fn, const_cast<Tensor*>(this), nullptr);
+    }
+
+    return *out;
+}
+
+Tensor &Tensor::implt_operator_div_i(float scalar) {
+    Tensor *out = new Tensor();
+    _tensor_gc_internal_0134.add_tensor_to_uncleaned(out);
+
+    out->ndim_ = ndim_;
+    out->shape_ = shape_;
+    out->data_.resize(size());
+    out->heap_allocated_ = true;
+
+    BASE_VALUE_TYPE scalar_quant = float2quant(scalar);
+    for (uint16_t i = 0; i < size(); ++i) {
+        // Q7.8 fixed-point division: (a << 8) / b
+        if (scalar_quant != 0) {
+            (*out)[i] = static_cast<BASE_VALUE_TYPE>((static_cast<BASE_VALUE_TYPE_2>(data_[i]) * static_cast<BASE_VALUE_TYPE_2>(BASE_VALUE_FRAC)) / scalar_quant);
+        } else {
+            (*out)[i] = 0; // or handle division by zero as needed
+        }
+    }
+
+    if (requires_grad_) {
+        out->set_requires_grad(true);
+        auto back_fn = [=](Tensor& self) {
+            for (uint16_t i = 0; i < self.size(); ++i) {
+                if (self.parent1_ && self.parent1_->requires_grad_) {
+                    // Fixed-point division: (a << 8) / b
+                    BASE_VALUE_TYPE grad_val = self.grad()[i];
+                    BASE_VALUE_TYPE dL_da = (grad_val * static_cast<BASE_VALUE_TYPE_2>(BASE_VALUE_FRAC)) / scalar_quant;
+                    self.parent1_->grad()[i] += dL_da;
+                }
+                if (self.parent2_ && self.parent2_->requires_grad_) {
+                    BASE_VALUE_TYPE a_val = self.data_[i];
+                    BASE_VALUE_TYPE dL_db = -self.grad()[i] * a_val / scalar_quant;
+                    self.parent2_->grad()[i] += dL_db;
+                }
+            }
+        };
+        out->_set_creator(back_fn, const_cast<Tensor*>(this), nullptr);
+    }
+
+    return *out;
+}
+
+
 
 std::ostream& operator<<(std::ostream& os, const Tensor& t) {
     os << "Tensor(shape: [";

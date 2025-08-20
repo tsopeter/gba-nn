@@ -1,29 +1,45 @@
+extern "C" {
+    #include <gba_console.h>
+    #include <gba_video.h>
+    #include <gba_interrupt.h>
+    #include <gba_systemcalls.h>
+}
 #include <stdio.h>
-#include <iostream>
 #include "nn.hpp"
 
+
 int main(void) {
-    Tensor a({2.0f, 2.0f}, shape_t{1,2}, true);
-    Tensor b({1.0f, 3.0f}, shape_t{1,2}, true);
+    irqInit();
+    irqEnable(IRQ_VBLANK);
+    consoleDemoInit();
 
-    // We want a -> b
-    
-    for (int i = 0; i < 1024; ++i) {
-        Tensor &c  = nn::loss::mse(a, b);
+    iprintf("Backpropagation example\n");
 
-        std::cout << c << '\n';
+    Tensor a({2.0f, 1.0f}, shape_t{2}, true);
+    Tensor b({4.0f, -1.0f}, shape_t{2}, false);
 
-        //std::cout << "GC Count: " << Tensor_GC_Count() << std::endl;
+    iprintf("Initial Tensor a:\n");
+    print_tensor(a);
 
+    iprintf("Tensor b:\n");
+    print_tensor(b);
+
+    iprintf("Loss function\nL=sum((a-b)^2)\n");
+
+    int step = 0;
+    while (1) {
+        VBlankIntrWait();
+
+        Tensor c = nn::sum((a - b) * (a - b));
         c.backward();
-
         a.update(0.01f);
         c.zero_grad();
-        Tensor_GC();
-    }
 
-    printf("a: ");
-    std::cout << a << '\n';
-    printf("\n");
-    return 0;
+        iprintf("\x1b[7;0H");  
+        iprintf("Step: %d Tensor a:\n", step);
+        iprintf("\x1b[8;0H");
+        print_tensor(a);
+
+        ++step;
+    }
 }

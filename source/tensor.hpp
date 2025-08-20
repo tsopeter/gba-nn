@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <vector>
 #include <functional>
+#include <iostream>
 
 using BASE_VALUE_TYPE   = float;
 using BASE_VALUE_TYPE_2 = float;

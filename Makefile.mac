@@ -1,0 +1,28 @@
+SRC_DIR := source
+BUILD_DIR := build
+
+SRCS := $(wildcard $(SRC_DIR)/*.cpp)
+OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRCS))
+
+CXX := g++
+CXXFLAGS := -Wall -O2 -std=c++17
+INCLUDES := -I/opt/homebrew/Cellar/raylib/5.0/include
+LDFLAGS := -L/opt/homebrew/Cellar/raylib/5.0/lib
+LIBS := -lraylib -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
+
+TARGET := app
+MACRO  := -DSYSTEM
+
+.PHONY: all clean
+
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	$(CXX) $(CXXFLAGS) $(MACRO) -o $@ $^ $(LDFLAGS) $(LIBS)
+
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
+	@mkdir -p $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(MACRO) -c $< -o $@ $(INCLUDES)
+
+clean:
+	rm -rf $(BUILD_DIR) $(TARGET)

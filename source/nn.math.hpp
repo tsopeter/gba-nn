@@ -21,6 +21,11 @@ Tensor &npow    (Tensor&, float exponent);
 Tensor &nexp    (Tensor&);
 Tensor &relu    (Tensor&);
 Tensor &sigmoid (Tensor&, float alpha=1.0f);
+Tensor &cat     (Tensor& t1, Tensor& t2);
+Tensor &nsin     (Tensor& t);
+Tensor &ncos     (Tensor& t);
+Tensor &wrap_angle (Tensor&);
+Tensor &nrand (shape_t shape, bool requires_grad=false);
 
 
 namespace loss {
